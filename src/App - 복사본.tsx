@@ -34,6 +34,7 @@ function App() {
   const [selectedDate, setSelectedDate] = useState(todayStr);
   const [showCalendar, setShowCalendar] = useState(true);
 
+  // 🚀 달력에서 현재 보고 있는 월(Month)을 관리하는 상태 추가
   const [viewDate, setViewDate] = useState(new Date());
 
   const [goals, setGoals] = useState({ dream: '', fiveYears: '', month: '', day: '' });
@@ -43,6 +44,7 @@ function App() {
   const [counts, setCounts] = useState({ demon: 0, stp: 0 });
   const [memo, setMemo] = useState('');
 
+  // 🚀 선택된 날짜의 스케줄(일정)을 관리하는 상태 추가
   const [schedule, setSchedule] = useState('');
 
   const [points, setPoints] = useState(0);
@@ -73,6 +75,7 @@ function App() {
     const savedMemo = localStorage.getItem(`success_memo_biz_${selectedDate}`);
     const savedPhoto = localStorage.getItem(`success_photo_${selectedDate}`);
     const savedOCR = localStorage.getItem(`success_ocr_${selectedDate}`);
+    // 🚀 스케줄 불러오기
     const savedSchedule = localStorage.getItem(`success_schedule_${selectedDate}`);
 
     if (savedGoals) setGoals(JSON.parse(savedGoals));
@@ -88,7 +91,7 @@ function App() {
     setCoreTexts(savedCoreTexts ? JSON.parse(savedCoreTexts) : Array(10).fill(''));
     setCounts(savedCounts ? JSON.parse(savedCounts) : { demon: 0, stp: 0 });
     setMemo(savedMemo ? savedMemo : '');
-    setSchedule(savedSchedule ? savedSchedule : '');
+    setSchedule(savedSchedule ? savedSchedule : ''); // 불러온 스케줄 세팅
     setPhotoUrl(savedPhoto ? savedPhoto : null);
     setExtractedText(savedOCR ? savedOCR : '');
   }, [selectedDate]);
@@ -113,6 +116,7 @@ function App() {
     localStorage.setItem(`success_counts_${selectedDate}`, JSON.stringify(counts));
     localStorage.setItem(`success_memo_biz_${selectedDate}`, memo);
 
+    // 🚀 스케줄 저장하기
     localStorage.setItem(`success_schedule_${selectedDate}`, schedule);
 
     if (photoUrl) localStorage.setItem(`success_photo_${selectedDate}`, photoUrl);
@@ -135,6 +139,7 @@ function App() {
     });
   }, [goals, isLocked, cores, coreTexts, counts, memo, schedule, points, rank, shareStreak, lastShareDate, photoUrl, extractedText, selectedDate]);
 
+  // 🚀 달력 렌더링에 사용될 현재 뷰(View)의 연/월
   const currentYear = viewDate.getFullYear();
   const currentMonth = viewDate.getMonth();
 
@@ -187,13 +192,10 @@ function App() {
 
   const handleShare = async () => {
     try {
-      // 🚀 제재 방지를 위해 보상형 광고 테스트 ID 적용 완료
       try {
-       // await showRewardedAd('ait-ad-test-rewarded-id');
         await showRewardedAd('ait.v2.live.5ae4abe4d1814715');
-
       } catch (adError) {
-        console.warn("광고 송출 실패 (테스트 환경이거나 일시적인 오류):", adError);
+        console.warn("광고 송출 실패 (테스트 환경이거나 일시적인 광고 재고 부족):", adError);
       }
 
       let newStreak = shareStreak;
@@ -232,6 +234,7 @@ function App() {
       const completedCount = cores.filter(Boolean).length;
       const dynamicStreakMessage = getStreakMessage(newStreak);
 
+      // 🚀 공유 텍스트에 내일 할 일(메모)과 스케줄 내용 일부가 포함되도록 할 수도 있습니다 (선택)
       const shareText = `🌟 [리더스 스토리 - 10코어 성공일기] 🌟\n📅 날짜: ${selectedDate}\n🔥 오늘 달성: ${completedCount}/10\n${dynamicStreakMessage}\n👑 현재 직급: ${newRank}\n📊 월 누적 달성률: ${monthProgressPercent}%\n🚀 월 누적 STP: ${monthStpTotal}회\n👥 월 누적 데몬: ${monthDemonTotal}회`;
 
       if (navigator.share) {
@@ -257,6 +260,7 @@ function App() {
     }
   };
 
+  // 🚀 달력 이전 달, 다음 달 이동 함수
   const handlePrevMonth = () => setViewDate(new Date(currentYear, currentMonth - 1, 1));
   const handleNextMonth = () => setViewDate(new Date(currentYear, currentMonth + 1, 1));
 
@@ -269,6 +273,7 @@ function App() {
       const count = history[dateStr] || 0;
       const isSelected = dateStr === selectedDate;
 
+      // 🚀 스케줄이 등록되어 있는 날짜인지 확인하여 닷(점) 표시 (선택사항)
       const hasSchedule = localStorage.getItem(`success_schedule_${dateStr}`);
 
       days.push(
@@ -279,6 +284,7 @@ function App() {
           className={`calendar-day active ${count === 10 ? 'completed' : ''} ${isSelected ? 'selected' : ''}`}
         >
           {d}
+          {/* 코어 실천 내역이 있거나 스케줄이 예약되어 있으면 달력에 점 표시 */}
           {(count > 0 || hasSchedule) && <div className="calendar-dot" style={{ backgroundColor: count > 0 ? '#3182F6' : '#FF7043' }} />}
         </div>
       );
@@ -332,6 +338,7 @@ function App() {
         {showCalendar && (
           <>
             <div className="calendar-card">
+              {/* 🚀 달력 상단 이전 달 / 다음 달 이동 컨트롤 */}
               <div className="calendar-header">
                 <button className="calendar-nav-btn" onClick={handlePrevMonth}>&lt;</button>
                 <div className="calendar-current-month">{currentYear}년 {currentMonth + 1}월</div>
@@ -368,6 +375,7 @@ function App() {
           })}
         </div>
 
+        {/* 🚀 새로 추가된 스케줄 (일정) 입력 영역 */}
         <div className="section-title" style={{ color: '#3182F6' }}>📅 {selectedDate} 미팅 및 일정</div>
         <div className="card" style={{ border: '1px solid #E8F3FF' }}>
           <textarea
@@ -397,6 +405,7 @@ function App() {
           ))}
         </div>
 
+        {/* 🚀 타이틀 변경된 내일 할 일 및 메모 영역 */}
         <div className="section-title">✍️ 내일 할 일 및 메모</div>
         <div className="card">
           <textarea placeholder="내일 달성할 핵심 업무 3가지나 피드백을 적어보세요." value={memo} onChange={e => setMemo(e.target.value)} />
