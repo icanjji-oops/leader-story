@@ -232,10 +232,10 @@ function App() {
       const completedCount = cores.filter(Boolean).length;
       const dynamicStreakMessage = getStreakMessage(newStreak);
 
-      const shareText = `🌟 [리더스 스토리 - 10코어 성공일기] 🌟\n📅 날짜: ${selectedDate}\n🔥 오늘 달성: ${completedCount}/10\n${dynamicStreakMessage}\n👑 현재 직급: ${newRank}\n📊 월 누적 달성률: ${monthProgressPercent}%\n🚀 월 누적 STP: ${monthStpTotal}회\n👥 월 누적 데몬: ${monthDemonTotal}회`;
+      const shareText = `🌟 [성공일기10코어] 🌟\n📅 날짜: ${selectedDate}\n🔥 오늘 달성: ${completedCount}/10\n${dynamicStreakMessage}\n👑 현재 직급: ${newRank}\n📊 월 누적 달성률: ${monthProgressPercent}%\n🚀 월 누적 STP: ${monthStpTotal}회\n👥 월 누적 데몬: ${monthDemonTotal}회`;
 
       if (navigator.share) {
-        await navigator.share({ title: '리더스 스토리', text: shareText });
+        await navigator.share({ title: '성공일기10코어', text: shareText });
       } else {
         navigator.clipboard.writeText(shareText);
         alert("내용이 복사되었습니다! 카카오톡에 붙여넣기 해보세요. 📋");
@@ -299,7 +299,7 @@ function App() {
       <div className="toss-container">
         <header className="header" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
-            <Text typography="t3" fontWeight="bold">성공일기 10코어 🔥</Text>
+            <Text typography="t3" fontWeight="bold">성공일기10코어 🔥</Text>
             <div className="header-badges">
               <div className="rank-badge">👑 {rank}</div>
               <div className="points-badge">💎 {points} P</div>
@@ -311,7 +311,7 @@ function App() {
         </header>
 
         <div className="app-description">
-          <span>🎯 리더스 스토리란?</span>
+          <span>🎯 성공일기10코어란?</span>
           매일 1%씩 성장하는 리더들을 위한 10코어 비즈니스 다이어리입니다. 하루하루의 꾸준한 실천 기록이 모여 다이아몬드의 기적을 만듭니다.
         </div>
 
