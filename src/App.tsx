@@ -29,7 +29,8 @@ function App() {
   const yesterdayObj = new Date();
   yesterdayObj.setDate(yesterdayObj.getDate() - 1);
 
-  const { showRewardedAd } = useInAppAds();
+// 🟢 TO-BE (수정: 전면 광고 ID를 넣고 showAd를 꺼냅니다)
+const { showAd, isSupported } = useInAppAds('ait.v2.live.4085991e9d3d489b');
 
   const [selectedDate, setSelectedDate] = useState(todayStr);
   const [showCalendar, setShowCalendar] = useState(true);
@@ -188,13 +189,15 @@ function App() {
   const handleShare = async () => {
     try {
       // 🚀 제재 방지를 위해 보상형 광고 테스트 ID 적용 완료
-      try {
-       // await showRewardedAd('ait-ad-test-rewarded-id');
-        await showRewardedAd('ait.v2.live.5ae4abe4d1814715');
-
-      } catch (adError) {
-        console.warn("광고 송출 실패 (테스트 환경이거나 일시적인 오류):", adError);
-      }
+ // 🟢 TO-BE (수정)
+       try {
+         // 🚀 환경이 지원될 경우 전면 광고를 띄웁니다!
+         if (isSupported) {
+           showAd();
+         }
+       } catch (adError) {
+         console.warn("광고 호출 에러:", adError);
+       }
 
       let newStreak = shareStreak;
       let isStreakIncreased = false;
