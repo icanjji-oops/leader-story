@@ -31,7 +31,10 @@ function App() {
 
 // 🟢 TO-BE (수정: 전면 광고 ID를 넣고 showAd를 꺼냅니다)
 const { showAd, isSupported } = useInAppAds('ait.v2.live.4085991e9d3d489b');
-
+// 🚀 [추가할 부분] 앱이 켜질 때 상단 헤더(웹뷰 타이틀)의 이름을 '성공일기10코어'로 강제 설정합니다.
+  useEffect(() => {
+    document.title = '성공일기10코어';
+  }, []);
   const [selectedDate, setSelectedDate] = useState(todayStr);
   const [showCalendar, setShowCalendar] = useState(true);
 
