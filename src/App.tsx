@@ -29,16 +29,20 @@ function App() {
   const yesterdayObj = new Date();
   yesterdayObj.setDate(yesterdayObj.getDate() - 1);
 
-// 🟢 TO-BE (수정: 전면 광고 ID를 넣고 showAd를 꺼냅니다)
-const { showAd, isSupported } = useInAppAds('ait.v2.live.4085991e9d3d489b');
-// 🚀 [추가할 부분] 앱이 켜질 때 상단 헤더(웹뷰 타이틀)의 이름을 '성공일기10코어'로 강제 설정합니다.
+  // 전면 광고 ID 적용
+  const { showAd, isSupported } = useInAppAds('ait.v2.live.4085991e9d3d489b');
+
   useEffect(() => {
     document.title = '성공일기10코어';
   }, []);
+
   const [selectedDate, setSelectedDate] = useState(todayStr);
   const [showCalendar, setShowCalendar] = useState(true);
 
   const [viewDate, setViewDate] = useState(new Date());
+
+  // 🚀 사용자 이름 상태 추가
+  const [userName, setUserName] = useState('');
 
   const [goals, setGoals] = useState({ dream: '', fiveYears: '', month: '', day: '' });
   const [isLocked, setIsLocked] = useState({ dream: false, fiveYears: false, month: false, day: false });
@@ -62,6 +66,10 @@ const { showAd, isSupported } = useInAppAds('ait.v2.live.4085991e9d3d489b');
   const [isExtracting, setIsExtracting] = useState(false);
 
   useEffect(() => {
+    // 🚀 이름 불러오기 추가
+    const savedUserName = localStorage.getItem('success_user_name');
+    if (savedUserName) setUserName(savedUserName);
+
     const savedGoals = localStorage.getItem('success_goals_v4');
     const savedLocks = localStorage.getItem('success_locks_v4');
     const savedPoints = localStorage.getItem('success_points');
@@ -105,6 +113,9 @@ const { showAd, isSupported } = useInAppAds('ait.v2.live.4085991e9d3d489b');
   }, [counts]);
 
   useEffect(() => {
+    // 🚀 이름 저장하기 추가
+    localStorage.setItem('success_user_name', userName);
+
     localStorage.setItem('success_goals_v4', JSON.stringify(goals));
     localStorage.setItem('success_locks_v4', JSON.stringify(isLocked));
     localStorage.setItem('success_points', points.toString());
@@ -137,7 +148,7 @@ const { showAd, isSupported } = useInAppAds('ait.v2.live.4085991e9d3d489b');
       localStorage.setItem('success_counts_history', JSON.stringify(updated));
       return updated;
     });
-  }, [goals, isLocked, cores, coreTexts, counts, memo, schedule, points, rank, shareStreak, lastShareDate, photoUrl, extractedText, selectedDate]);
+  }, [userName, goals, isLocked, cores, coreTexts, counts, memo, schedule, points, rank, shareStreak, lastShareDate, photoUrl, extractedText, selectedDate]);
 
   const currentYear = viewDate.getFullYear();
   const currentMonth = viewDate.getMonth();
@@ -191,16 +202,13 @@ const { showAd, isSupported } = useInAppAds('ait.v2.live.4085991e9d3d489b');
 
   const handleShare = async () => {
     try {
-      // 🚀 제재 방지를 위해 보상형 광고 테스트 ID 적용 완료
- // 🟢 TO-BE (수정)
-       try {
-         // 🚀 환경이 지원될 경우 전면 광고를 띄웁니다!
-         if (isSupported) {
-           showAd();
-         }
-       } catch (adError) {
-         console.warn("광고 호출 에러:", adError);
-       }
+      try {
+        if (isSupported) {
+          showAd();
+        }
+      } catch (adError) {
+        console.warn("광고 호출 에러:", adError);
+      }
 
       let newStreak = shareStreak;
       let isStreakIncreased = false;
@@ -238,7 +246,8 @@ const { showAd, isSupported } = useInAppAds('ait.v2.live.4085991e9d3d489b');
       const completedCount = cores.filter(Boolean).length;
       const dynamicStreakMessage = getStreakMessage(newStreak);
 
-      const shareText = `🌟 [성공일기10코어] 🌟\n📅 날짜: ${selectedDate}\n🔥 오늘 달성: ${completedCount}/10\n${dynamicStreakMessage}\n👑 현재 직급: ${newRank}\n📊 월 누적 달성률: ${monthProgressPercent}%\n🚀 월 누적 STP: ${monthStpTotal}회\n👥 월 누적 데몬: ${monthDemonTotal}회`;
+      // 🚀 공유 메시지에 사용자 이름 추가
+      const shareText = `🌟 [성공일기10코어] 🌟\n👤 리더: ${userName || '이름없음'}\n📅 날짜: ${selectedDate}\n🔥 오늘 달성: ${completedCount}/10\n${dynamicStreakMessage}\n👑 현재 직급: ${newRank}\n📊 월 누적 달성률: ${monthProgressPercent}%\n🚀 월 누적 STP: ${monthStpTotal}회\n👥 월 누적 데몬: ${monthDemonTotal}회`;
 
       if (navigator.share) {
         await navigator.share({ title: '성공일기10코어', text: shareText });
@@ -307,7 +316,17 @@ const { showAd, isSupported } = useInAppAds('ait.v2.live.4085991e9d3d489b');
           <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
             <Text typography="t3" fontWeight="bold">성공일기10코어 🔥</Text>
             <div className="header-badges">
-              <div className="rank-badge">👑 {rank}</div>
+              {/* 🚀 이름 입력 및 표시 영역 */}
+              <div
+                className="rank-badge"
+                onClick={() => {
+                  const input = window.prompt("당신의 이름을 입력해주세요!", userName);
+                  if (input !== null) setUserName(input.trim());
+                }}
+                style={{ cursor: 'pointer' }}
+              >
+                👑 {userName ? `${userName} (${rank})` : `이름 입력 (${rank})`}
+              </div>
               <div className="points-badge">💎 {points} P</div>
             </div>
           </div>
