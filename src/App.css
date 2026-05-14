@@ -73,7 +73,27 @@ textarea { width: 100%; min-height: 100px; border: none; background: #F9FAFB; bo
 }
 /* 직급 및 포인트 뱃지 레이아웃 */
 .header-badges { display: flex; gap: 8px; align-items: center; }
-.rank-badge { background: #191F28; color: white; padding: 6px 12px; border-radius: 20px; font-size: 14px; font-weight: 800; }
+
+
+
+/* AS-IS (기존) */
+/* .rank-badge { background: #191F28; color: white; padding: 6px 12px; border-radius: 20px; font-size: 14px; font-weight: 800; } */
+
+/* TO-BE (수정) */
+.rank-badge {
+  background: #191F28;
+  color: white;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 800;
+
+  /* 🚀 한 줄 유지 및 말줄임표 처리를 위한 속성 추가 */
+  white-space: nowrap;      /* 줄바꿈 금지 */
+  overflow: hidden;         /* 넘치는 부분 숨김 */
+  text-overflow: ellipsis;  /* 넘치는 부분 말줄임표(...) 처리 */
+  max-width: 150px;         /* 뱃지의 최대 너비 설정 (화면 크기에 따라 조절 가능) */
+}
 .streak-text { margin-top: 8px; font-size: 13px; color: #3182F6; font-weight: 800; }
 /* 달력 토글 버튼 */
 .toggle-btn { background: none; border: none; color: #8B95A1; font-size: 13px; font-weight: bold; cursor: pointer; padding: 4px 8px; border-radius: 6px; transition: 0.2s; }
@@ -127,3 +147,58 @@ textarea { width: 100%; min-height: 100px; border: none; background: #F9FAFB; bo
 }
 .calendar-nav-btn:hover { background: #E5E8EB; }
 .calendar-current-month { font-size: 16px; font-weight: 800; color: #191F28; }
+/* 🚀 일정 관리 모달(팝업창) 스타일 추가 */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 24px;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: white;
+  width: 100%;
+  max-width: 400px;
+  border-radius: 20px;
+  padding: 24px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  animation: popUp 0.3s ease-out;
+}
+
+.modal-header {
+  font-size: 18px;
+  font-weight: 800;
+  color: #191F28;
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+.btn-save {
+  width: 100%;
+  background: #3182F6;
+  color: white;
+  border: none;
+  padding: 16px;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  margin-top: 16px;
+  transition: background 0.2s;
+}
+
+.btn-save:active {
+  background: #1B64DA;
+}
+
+@keyframes popUp {
+  from { transform: scale(0.9); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}

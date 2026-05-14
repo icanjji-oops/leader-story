@@ -2,11 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { Text, Spacing } from '@toss/tds-mobile';
 import { colors } from '@toss/tds-colors';
 import Tesseract from 'tesseract.js';
-import { useInAppAds } from './hooks/useInAppAds';
+import { showFullScreenAd } from '@apps-in-toss/web-framework';
 import './App.css';
 
 const CORE_LIST = [
-  "💪 1. 체력단련", "📚 2. 책 읽기", "🎧 3. 음원듣기 (성공자)", "🤝 4. 미팅 참석", "🛍️ 5. 제품애용",
+  "💪 1. 체력단련", "📚 2. 책 읽기", "🎧 3. 음원듣기 (성공자)", "🤝 4. 미팅 참석", "🛍️ 5. 100%제품애용",
   "👥 6. 소비자 관리", "📊 7. 사업설명", "❤️ 8. 신뢰쌓기", "🧭 9. 상담", "📱 10. e-커뮤니케이션"
 ];
 
@@ -24,13 +24,9 @@ const GOAL_FIELDS = [
 
 function App() {
   const dateObj = new Date();
-  const todayStr = dateObj.toISOString().split('T')[0];
-
-  const yesterdayObj = new Date();
-  yesterdayObj.setDate(yesterdayObj.getDate() - 1);
-
-  // 전면 광고 ID 적용
-  const { showAd, isSupported } = useInAppAds('ait.v2.live.4085991e9d3d489b');
+  const timezoneOffset = dateObj.getTimezoneOffset() * 60000;
+  const localDate = new Date(dateObj.getTime() - timezoneOffset);
+  const todayStr = localDate.toISOString().split('T')[0];
 
   useEffect(() => {
     document.title = '성공일기10코어';
@@ -38,11 +34,11 @@ function App() {
 
   const [selectedDate, setSelectedDate] = useState(todayStr);
   const [showCalendar, setShowCalendar] = useState(true);
-
   const [viewDate, setViewDate] = useState(new Date());
-
-  // 🚀 사용자 이름 상태 추가
   const [userName, setUserName] = useState('');
+
+  // 🚀 일정 팝업창(모달) 상태 추가
+  const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
 
   const [goals, setGoals] = useState({ dream: '', fiveYears: '', month: '', day: '' });
   const [isLocked, setIsLocked] = useState({ dream: false, fiveYears: false, month: false, day: false });
@@ -50,7 +46,6 @@ function App() {
   const [coreTexts, setCoreTexts] = useState<string[]>(Array(10).fill(''));
   const [counts, setCounts] = useState({ demon: 0, stp: 0 });
   const [memo, setMemo] = useState('');
-
   const [schedule, setSchedule] = useState('');
 
   const [points, setPoints] = useState(0);
@@ -66,7 +61,6 @@ function App() {
   const [isExtracting, setIsExtracting] = useState(false);
 
   useEffect(() => {
-    // 🚀 이름 불러오기 추가
     const savedUserName = localStorage.getItem('success_user_name');
     if (savedUserName) setUserName(savedUserName);
 
@@ -113,9 +107,7 @@ function App() {
   }, [counts]);
 
   useEffect(() => {
-    // 🚀 이름 저장하기 추가
     localStorage.setItem('success_user_name', userName);
-
     localStorage.setItem('success_goals_v4', JSON.stringify(goals));
     localStorage.setItem('success_locks_v4', JSON.stringify(isLocked));
     localStorage.setItem('success_points', points.toString());
@@ -127,7 +119,6 @@ function App() {
     localStorage.setItem(`success_core_texts_biz_${selectedDate}`, JSON.stringify(coreTexts));
     localStorage.setItem(`success_counts_${selectedDate}`, JSON.stringify(counts));
     localStorage.setItem(`success_memo_biz_${selectedDate}`, memo);
-
     localStorage.setItem(`success_schedule_${selectedDate}`, schedule);
 
     if (photoUrl) localStorage.setItem(`success_photo_${selectedDate}`, photoUrl);
@@ -152,7 +143,6 @@ function App() {
 
   const currentYear = viewDate.getFullYear();
   const currentMonth = viewDate.getMonth();
-
   const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
   const currentMonthPrefix = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`;
 
@@ -201,74 +191,91 @@ function App() {
   };
 
   const handleShare = async () => {
-    try {
-      try {
-        if (isSupported) {
-          showAd();
-        }
-      } catch (adError) {
-        console.warn("광고 호출 에러:", adError);
-      }
+    let newStreak = shareStreak;
+    let isStreakIncreased = false;
 
-      let newStreak = shareStreak;
-      let isStreakIncreased = false;
+    if (lastShareDate !== todayStr) {
+      if (lastShareDate) {
+        const lastDate = new Date(lastShareDate);
+        const currDate = new Date(todayStr);
+        const diffDays = Math.round((currDate.getTime() - lastDate.getTime()) / (1000 * 3600 * 24));
 
-      if (lastShareDate !== todayStr) {
-        if (lastShareDate) {
-          const lastDate = new Date(lastShareDate);
-          const currDate = new Date(todayStr);
-          const diffDays = Math.round((currDate.getTime() - lastDate.getTime()) / (1000 * 3600 * 24));
-
-          if (diffDays === 1) {
-            newStreak += 1;
-            isStreakIncreased = true;
-          } else {
-            newStreak = 1;
-            isStreakIncreased = true;
-          }
+        if (diffDays === 1) {
+          newStreak += 1;
+          isStreakIncreased = true;
         } else {
           newStreak = 1;
           isStreakIncreased = true;
         }
+      } else {
+        newStreak = 1;
+        isStreakIncreased = true;
       }
+    }
 
-      let bonusPoints = 0;
-      let newRank = rank;
+    let bonusPoints = 0;
+    let newRank = rank;
 
-      if (isStreakIncreased) {
-        if (newStreak === 30) { newRank = '브론즈'; bonusPoints = 30; }
-        else if (newStreak === 100) { newRank = 'SP'; bonusPoints = 100; }
-        else if (newStreak === 200) { newRank = '사파이어'; bonusPoints = 200; }
-        else if (newStreak === 300) { newRank = '에메랄드'; bonusPoints = 300; }
-        else if (newStreak === 500) { newRank = '다이아몬드'; bonusPoints = 1000; }
-      }
+    if (isStreakIncreased) {
+      if (newStreak === 30) { newRank = '브론즈'; bonusPoints = 30; }
+      else if (newStreak === 100) { newRank = 'SP'; bonusPoints = 100; }
+      else if (newStreak === 200) { newRank = '사파이어'; bonusPoints = 200; }
+      else if (newStreak === 300) { newRank = '에메랄드'; bonusPoints = 300; }
+      else if (newStreak === 500) { newRank = '다이아몬드'; bonusPoints = 1000; }
+    }
 
-      const completedCount = cores.filter(Boolean).length;
-      const dynamicStreakMessage = getStreakMessage(newStreak);
+    setShareStreak(newStreak);
+    setLastShareDate(todayStr);
+    setRank(newRank);
+    setPoints(p => p + 1 + bonusPoints);
 
-      // 🚀 공유 메시지에 사용자 이름 추가
-      const shareText = `🌟 [성공일기10코어] 🌟\n👤 리더: ${userName || '이름없음'}\n📅 날짜: ${selectedDate}\n🔥 오늘 달성: ${completedCount}/10\n${dynamicStreakMessage}\n👑 현재 직급: ${newRank}\n📊 월 누적 달성률: ${monthProgressPercent}%\n🚀 월 누적 STP: ${monthStpTotal}회\n👥 월 누적 데몬: ${monthDemonTotal}회`;
+    localStorage.setItem('success_streak', newStreak.toString());
+    localStorage.setItem('success_last_share', todayStr);
+    localStorage.setItem('success_rank', newRank);
 
+    const completedCount = cores.filter(Boolean).length;
+    const dynamicStreakMessage = getStreakMessage(newStreak);
+    const shareText = `🌟 [성공일기10코어] 🌟\n👤 리더: ${userName || '이름없음'}\n📅 날짜: ${selectedDate}\n🔥 오늘 달성: ${completedCount}/10\n${dynamicStreakMessage}\n👑 현재 직급: ${newRank}\n📊 월 누적 달성률: ${monthProgressPercent}%\n🚀 월 누적 STP: ${monthStpTotal}회\n👥 월 누적 데몬: ${monthDemonTotal}회`;
+
+    const executeShare = () => {
       if (navigator.share) {
-        await navigator.share({ title: '성공일기10코어', text: shareText });
+        navigator.share({ title: '성공일기10코어', text: shareText }).catch(err => console.log("공유 창 닫음", err));
       } else {
         navigator.clipboard.writeText(shareText);
         alert("내용이 복사되었습니다! 카카오톡에 붙여넣기 해보세요. 📋");
       }
 
-      setShareStreak(newStreak);
-      setLastShareDate(todayStr);
-      setRank(newRank);
-      setPoints(p => p + 1 + bonusPoints);
+      setTimeout(() => {
+        if (bonusPoints > 0) {
+          alert(`🎉 기적을 만들고 계십니다! 연속 ${newStreak}일 달성!\n[${newRank}] 승급 및 ${bonusPoints}P 보너스가 지급되었습니다! 💎💎💎`);
+        } else if (isStreakIncreased) {
+          alert(`🎉 1% 성장 공유 완료! 기본 1포인트 지급 (현재 연속 ${newStreak}일째 🔥)`);
+        } else {
+          alert(`🎉 오늘의 공유를 완료했습니다! (현재 연속 ${newStreak}일째 🔥)`);
+        }
+      }, 500);
+    };
 
-      if (bonusPoints > 0) {
-        alert(`🎉 기적을 만들고 계십니다! 연속 ${newStreak}일 달성!\n[${newRank}] 승급 및 ${bonusPoints}P 보너스가 지급되었습니다! 💎💎💎`);
+    try {
+      if (showFullScreenAd.isSupported()) {
+        showFullScreenAd({
+          options: { adGroupId: 'ait.v2.live.4085991e9d3d489b' },
+          onEvent: (event) => {
+            if (event.type === 'dismissed' || event.type === 'userEarnedReward') {
+              executeShare();
+            }
+          },
+          onError: (error) => {
+            console.warn("광고 로드 실패(검은 화면 방어 작동), 바로 공유로 넘어갑니다:", error);
+            executeShare();
+          }
+        });
       } else {
-        alert(`🎉 1% 성장 공유 완료! 기본 1포인트 지급 (현재 연속 ${newStreak}일째 🔥)`);
+        executeShare();
       }
-
-    } catch (error) {
-      console.error("공유 취소 또는 시스템 오류:", error);
+    } catch (adError) {
+      console.warn("광고 시스템 에러:", adError);
+      executeShare();
     }
   };
 
@@ -283,13 +290,15 @@ function App() {
       const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
       const count = history[dateStr] || 0;
       const isSelected = dateStr === selectedDate;
-
       const hasSchedule = localStorage.getItem(`success_schedule_${dateStr}`);
 
       days.push(
         <div
           key={d}
-          onClick={() => setSelectedDate(dateStr)}
+          onClick={() => {
+            setSelectedDate(dateStr);
+            setIsScheduleModalOpen(true); // 🚀 날짜 선택 시 팝업창 오픈
+          }}
           style={{ cursor: 'pointer' }}
           className={`calendar-day active ${count === 10 ? 'completed' : ''} ${isSelected ? 'selected' : ''}`}
         >
@@ -316,7 +325,6 @@ function App() {
           <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
             <Text typography="t3" fontWeight="bold">성공일기10코어 🔥</Text>
             <div className="header-badges">
-              {/* 🚀 이름 입력 및 표시 영역 */}
               <div
                 className="rank-badge"
                 onClick={() => {
@@ -325,7 +333,7 @@ function App() {
                 }}
                 style={{ cursor: 'pointer' }}
               >
-                👑 {userName ? `${userName} (${rank})` : `이름 입력 (${rank})`}
+                  👑 {userName ? userName : `이름 입력 (${rank})`}
               </div>
               <div className="points-badge">💎 {points} P</div>
             </div>
@@ -348,26 +356,24 @@ function App() {
         </div>
 
         <div className="section-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span>🗓️ 성공 달력 예약 및 확인</span>
+          <span>🗓️ 성공 달력 예약 및 확인 (터치 시 일정 관리)</span>
           <button className="toggle-btn" onClick={() => setShowCalendar(!showCalendar)}>
             {showCalendar ? '접기 🔼' : '펼치기 🔽'}
           </button>
         </div>
 
         {showCalendar && (
-          <>
-            <div className="calendar-card">
-              <div className="calendar-header">
-                <button className="calendar-nav-btn" onClick={handlePrevMonth}>&lt;</button>
-                <div className="calendar-current-month">{currentYear}년 {currentMonth + 1}월</div>
-                <button className="calendar-nav-btn" onClick={handleNextMonth}>&gt;</button>
-              </div>
-              <div className="calendar-grid">
-                {['일','월','화','수','목','금','토'].map(d => <div key={d} className="calendar-day-label">{d}</div>)}
-                {renderCalendar()}
-              </div>
+          <div className="calendar-card">
+            <div className="calendar-header">
+              <button className="calendar-nav-btn" onClick={handlePrevMonth}>&lt;</button>
+              <div className="calendar-current-month">{currentYear}년 {currentMonth + 1}월</div>
+              <button className="calendar-nav-btn" onClick={handleNextMonth}>&gt;</button>
             </div>
-          </>
+            <div className="calendar-grid">
+              {['일','월','화','수','목','금','토'].map(d => <div key={d} className="calendar-day-label">{d}</div>)}
+              {renderCalendar()}
+            </div>
+          </div>
         )}
 
         <div className="section-title">🎯 나의 확고한 목표</div>
@@ -393,15 +399,7 @@ function App() {
           })}
         </div>
 
-        <div className="section-title" style={{ color: '#3182F6' }}>📅 {selectedDate} 미팅 및 일정</div>
-        <div className="card" style={{ border: '1px solid #E8F3FF' }}>
-          <textarea
-            placeholder="예: 14:00 강남 스폰서 미팅, 16:00 파트너 데몬 약속"
-            value={schedule}
-            onChange={e => setSchedule(e.target.value)}
-            style={{ marginBottom: 0, minHeight: '80px', backgroundColor: '#F2F8FF' }}
-          />
-        </div>
+        {/* 🚀 기존 캘린더 아래에 있던 '미팅 및 일정' 영역 삭제됨 */}
 
         <div className="section-title">✅ {selectedDate}의 10코어 점검</div>
         <div className="card">
@@ -443,8 +441,35 @@ function App() {
 
           <Spacing size={16} />
           <button className="share-btn" onClick={handleShare}>📺 1%성장 공유하기</button>
-
         </div>
+
+        {/* 🚀 일정 팝업창 (모달) UI 추가 */}
+        {isScheduleModalOpen && (
+          <div className="modal-overlay" onClick={() => setIsScheduleModalOpen(false)}>
+            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+              <div className="modal-header">📅 {selectedDate} 일정 및 약속</div>
+              <textarea
+                placeholder="예: 14:00 강남 스폰서 미팅, 16:00 파트너 데몬 약속"
+                value={schedule}
+                onChange={e => setSchedule(e.target.value)}
+                style={{
+                  width: '100%',
+                  minHeight: '150px',
+                  border: '1px solid #E5E8EB',
+                  backgroundColor: '#F9FAFB',
+                  borderRadius: '12px',
+                  padding: '16px',
+                  fontSize: '15px',
+                  outline: 'none',
+                  resize: 'none',
+                  marginBottom: '0'
+                }}
+              />
+              <button className="btn-save" onClick={() => setIsScheduleModalOpen(false)}>저장 및 닫기</button>
+            </div>
+          </div>
+        )}
+
       </div>
     </div>
   );
