@@ -37,8 +37,15 @@ function App() {
   const [viewDate, setViewDate] = useState(new Date());
   const [userName, setUserName] = useState('');
 
-  // 🚀 일정 팝업창(모달) 상태 추가
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
+  const [isShopModalOpen, setIsShopModalOpen] = useState(false);
+
+  const [isMonthlyScheduleModalOpen, setIsMonthlyScheduleModalOpen] = useState(false);
+  const [monthlySchedules, setMonthlySchedules] = useState<{date: string, schedule: string}[]>([]);
+
+  // 🚀 월간 일정표 이미지 뷰어 상태
+  const [monthlyScheduleImage, setMonthlyScheduleImage] = useState<string | null>(null);
+  const [isImageViewerOpen, setIsImageViewerOpen] = useState(false);
 
   const [goals, setGoals] = useState({ dream: '', fiveYears: '', month: '', day: '' });
   const [isLocked, setIsLocked] = useState({ dream: false, fiveYears: false, month: false, day: false });
@@ -59,6 +66,17 @@ function App() {
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [extractedText, setExtractedText] = useState('');
   const [isExtracting, setIsExtracting] = useState(false);
+
+  const currentYear = viewDate.getFullYear();
+  const currentMonth = viewDate.getMonth();
+  const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+  const currentMonthPrefix = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`;
+
+  // 🚀 이달의 일정표 이미지를 월 변경 시마다 새로 불러옴
+  useEffect(() => {
+    const savedImg = localStorage.getItem(`success_monthly_schedule_image_${currentMonthPrefix}`);
+    setMonthlyScheduleImage(savedImg ? savedImg : null);
+  }, [currentMonthPrefix]);
 
   useEffect(() => {
     const savedUserName = localStorage.getItem('success_user_name');
@@ -107,6 +125,54 @@ function App() {
   }, [counts]);
 
   useEffect(() => {
+    try {
+      const isNotificationSupported = 'Notification' in window;
+      if (isNotificationSupported) {
+        if (window.Notification.permission !== 'granted' && window.Notification.permission !== 'denied') {
+          window.Notification.requestPermission().catch(e => console.warn("알림 권한 요청 실패:", e));
+        }
+      }
+
+      const checkTimeAndNotify = () => {
+        const now = new Date();
+        const hours = now.getHours();
+        const minutes = now.getMinutes();
+        const targetHours = [7, 9, 13, 17];
+
+        if (targetHours.includes(hours) && minutes === 0) {
+          const lastNotified = localStorage.getItem('success_last_notified_time');
+          const currentTimeStr = `${hours}:${minutes}`;
+
+          if (lastNotified !== currentTimeStr) {
+            const timezoneOffset = now.getTimezoneOffset() * 60000;
+            const localDate = new Date(now.getTime() - timezoneOffset);
+            const todayStr = localDate.toISOString().split('T')[0];
+
+            const todaySchedule = localStorage.getItem(`success_schedule_${todayStr}`);
+            const messageBody = todaySchedule ? `오늘의 일정: ${todaySchedule}` : '오늘의 일정을 등록하고 10코어를 실천하세요!';
+
+            if (isNotificationSupported && window.Notification.permission === 'granted') {
+              new window.Notification('성공일기10코어 ⏰', {
+                body: messageBody,
+                icon: 'https://cdn-icons-png.flaticon.com/512/825/825590.png'
+              });
+            } else {
+              alert(`[알림] 성공일기10코어 ⏰\n${messageBody}`);
+            }
+            localStorage.setItem('success_last_notified_time', currentTimeStr);
+          }
+        }
+      };
+
+      const intervalId = setInterval(checkTimeAndNotify, 60000);
+      checkTimeAndNotify();
+      return () => clearInterval(intervalId);
+    } catch (error) {
+      console.warn("알림 기능 충돌 방어 성공:", error);
+    }
+  }, []);
+
+  useEffect(() => {
     localStorage.setItem('success_user_name', userName);
     localStorage.setItem('success_goals_v4', JSON.stringify(goals));
     localStorage.setItem('success_locks_v4', JSON.stringify(isLocked));
@@ -140,11 +206,6 @@ function App() {
       return updated;
     });
   }, [userName, goals, isLocked, cores, coreTexts, counts, memo, schedule, points, rank, shareStreak, lastShareDate, photoUrl, extractedText, selectedDate]);
-
-  const currentYear = viewDate.getFullYear();
-  const currentMonth = viewDate.getMonth();
-  const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-  const currentMonthPrefix = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`;
 
   let monthCoresDone = 0;
   let monthDemonTotal = 0;
@@ -187,6 +248,32 @@ function App() {
       setExtractedText('텍스트 변환에 실패했습니다.');
     } finally {
       setIsExtracting(false);
+    }
+  };
+
+  // 🚀 월간 일정표 이미지 업로드 핸들러
+  const handleMonthlyImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const result = reader.result as string;
+      try {
+        localStorage.setItem(`success_monthly_schedule_image_${currentMonthPrefix}`, result);
+        setMonthlyScheduleImage(result);
+      } catch (error) {
+        alert('이미지 용량이 너무 큽니다. 화면을 캡처하여 작은 용량으로 다시 올려주세요.');
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // 🚀 월간 일정표 이미지 삭제 핸들러
+  const handleDeleteMonthlyImage = () => {
+    if(window.confirm('등록된 월간 일정표 이미지를 삭제하시겠습니까?')) {
+      localStorage.removeItem(`success_monthly_schedule_image_${currentMonthPrefix}`);
+      setMonthlyScheduleImage(null);
     }
   };
 
@@ -237,19 +324,23 @@ function App() {
     const dynamicStreakMessage = getStreakMessage(newStreak);
     const shareText = `🌟 [성공일기10코어] 🌟\n👤 리더: ${userName || '이름없음'}\n📅 날짜: ${selectedDate}\n🔥 오늘 달성: ${completedCount}/10\n${dynamicStreakMessage}\n👑 현재 직급: ${newRank}\n📊 월 누적 달성률: ${monthProgressPercent}%\n🚀 월 누적 STP: ${monthStpTotal}회\n👥 월 누적 데몬: ${monthDemonTotal}회`;
 
-    const executeShare = () => {
+    try {
       if (navigator.share) {
-        navigator.share({ title: '성공일기10코어', text: shareText }).catch(err => console.log("공유 창 닫음", err));
+        await navigator.share({ title: '성공일기10코어', text: shareText });
       } else {
-        navigator.clipboard.writeText(shareText);
+        await navigator.clipboard.writeText(shareText);
         alert("내용이 복사되었습니다! 카카오톡에 붙여넣기 해보세요. 📋");
       }
+    } catch (err) {
+      console.warn("공유를 취소했거나 에러 발생:", err);
+    }
 
+    const showRewardAlert = () => {
       setTimeout(() => {
         if (bonusPoints > 0) {
           alert(`🎉 기적을 만들고 계십니다! 연속 ${newStreak}일 달성!\n[${newRank}] 승급 및 ${bonusPoints}P 보너스가 지급되었습니다! 💎💎💎`);
         } else if (isStreakIncreased) {
-          alert(`🎉 1% 성장 공유 완료! 기본 1포인트 지급 (현재 연속 ${newStreak}일째 🔥)`);
+          alert(`🎉 1% 성장 완료! 기본 1포인트 지급 (현재 연속 ${newStreak}일째 🔥)`);
         } else {
           alert(`🎉 오늘의 공유를 완료했습니다! (현재 연속 ${newStreak}일째 🔥)`);
         }
@@ -257,25 +348,52 @@ function App() {
     };
 
     try {
-      if (showFullScreenAd.isSupported()) {
-        showFullScreenAd({
-          options: { adGroupId: 'ait.v2.live.4085991e9d3d489b' },
-          onEvent: (event) => {
-            if (event.type === 'dismissed' || event.type === 'userEarnedReward') {
-              executeShare();
-            }
-          },
-          onError: (error) => {
-            console.warn("광고 로드 실패(검은 화면 방어 작동), 바로 공유로 넘어갑니다:", error);
-            executeShare();
-          }
-        });
+      if (typeof showFullScreenAd !== 'undefined' && showFullScreenAd.isSupported && showFullScreenAd.isSupported()) {
+        await showFullScreenAd({ adGroupId: 'ait.v2.live.4085991e9d3d489b' });
+        showRewardAlert();
       } else {
-        executeShare();
+        await showFullScreenAd({ adGroupId: 'ait.v2.live.4085991e9d3d489b' });
+        showRewardAlert();
       }
     } catch (adError) {
-      console.warn("광고 시스템 에러:", adError);
-      executeShare();
+      console.warn("광고 시스템 로드 실패. 앱 멈춤 방지를 위해 바로 넘어갑니다:", adError);
+      showRewardAlert();
+    }
+  };
+
+  const handleMonthClick = () => {
+    const schedules = [];
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      const savedSchedule = localStorage.getItem(`success_schedule_${dateStr}`);
+      if (savedSchedule && savedSchedule.trim() !== '') {
+        schedules.push({ date: dateStr, schedule: savedSchedule.trim() });
+      }
+    }
+    setMonthlySchedules(schedules);
+    setIsMonthlyScheduleModalOpen(true);
+  };
+
+  const handleShareMonthlySchedule = async () => {
+    if (monthlySchedules.length === 0) {
+      alert("공유할 일정이 없습니다.");
+      return;
+    }
+
+    let shareText = `📅 [${currentYear}년 ${currentMonth + 1}월 전체 일정]\n\n`;
+    monthlySchedules.forEach(item => {
+      shareText += `📌 ${item.date}\n${item.schedule}\n\n`;
+    });
+
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: '월간 일정 공유', text: shareText });
+      } else {
+        await navigator.clipboard.writeText(shareText);
+        alert("월간 일정이 복사되었습니다! 카카오톡에 붙여넣기 해보세요. 📋");
+      }
+    } catch (err) {
+      console.warn("월간 일정 공유 에러:", err);
     }
   };
 
@@ -297,7 +415,7 @@ function App() {
           key={d}
           onClick={() => {
             setSelectedDate(dateStr);
-            setIsScheduleModalOpen(true); // 🚀 날짜 선택 시 팝업창 오픈
+            setIsScheduleModalOpen(true);
           }}
           style={{ cursor: 'pointer' }}
           className={`calendar-day active ${count === 10 ? 'completed' : ''} ${isSelected ? 'selected' : ''}`}
@@ -356,7 +474,7 @@ function App() {
         </div>
 
         <div className="section-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span>🗓️ 성공 달력 예약 및 확인 (터치 시 일정 관리)</span>
+          <span>🗓️ 성공 달력 예약 및 확인</span>
           <button className="toggle-btn" onClick={() => setShowCalendar(!showCalendar)}>
             {showCalendar ? '접기 🔼' : '펼치기 🔽'}
           </button>
@@ -366,12 +484,21 @@ function App() {
           <div className="calendar-card">
             <div className="calendar-header">
               <button className="calendar-nav-btn" onClick={handlePrevMonth}>&lt;</button>
-              <div className="calendar-current-month">{currentYear}년 {currentMonth + 1}월</div>
+              <div
+                className="calendar-current-month"
+                onClick={handleMonthClick}
+                style={{ cursor: 'pointer', padding: '4px 12px', borderRadius: '8px', background: '#F2F8FF', color: '#3182F6', border: '1px solid #D1E4FF' }}
+              >
+                {currentYear}년 {currentMonth + 1}월 🔍
+              </div>
               <button className="calendar-nav-btn" onClick={handleNextMonth}>&gt;</button>
             </div>
             <div className="calendar-grid">
               {['일','월','화','수','목','금','토'].map(d => <div key={d} className="calendar-day-label">{d}</div>)}
               {renderCalendar()}
+            </div>
+            <div style={{ textAlign: 'center', fontSize: '11px', color: '#8B95A1', marginTop: '16px' }}>
+              💡 터치하여 하루 일정 관리 | 월 텍스트(🔍)를 눌러 전체 일정 모아보기
             </div>
           </div>
         )}
@@ -398,8 +525,6 @@ function App() {
             );
           })}
         </div>
-
-        {/* 🚀 기존 캘린더 아래에 있던 '미팅 및 일정' 영역 삭제됨 */}
 
         <div className="section-title">✅ {selectedDate}의 10코어 점검</div>
         <div className="card">
@@ -441,9 +566,17 @@ function App() {
 
           <Spacing size={16} />
           <button className="share-btn" onClick={handleShare}>📺 1%성장 공유하기</button>
+
+          <button
+            className="share-btn"
+            onClick={() => setIsShopModalOpen(true)}
+            style={{ marginTop: '12px', backgroundColor: '#191F28' }}
+          >
+            🎁 모은 포인트로 기프티콘 교환하기 (현재 {points}P)
+          </button>
         </div>
 
-        {/* 🚀 일정 팝업창 (모달) UI 추가 */}
+        {/* 📅 일간 일정 관리 팝업 */}
         {isScheduleModalOpen && (
           <div className="modal-overlay" onClick={() => setIsScheduleModalOpen(false)}>
             <div className="modal-content" onClick={(e) => e.stopPropagation()}>
@@ -466,6 +599,142 @@ function App() {
                 }}
               />
               <button className="btn-save" onClick={() => setIsScheduleModalOpen(false)}>저장 및 닫기</button>
+            </div>
+          </div>
+        )}
+
+        {/* 🚀 월간 일정 팝업 (이미지 업로드 & 뷰어 기능 탑재) */}
+        {isMonthlyScheduleModalOpen && (
+          <div className="modal-overlay" onClick={() => setIsMonthlyScheduleModalOpen(false)}>
+            <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxHeight: '80vh', overflowY: 'auto' }}>
+              <div className="modal-header">📅 {currentYear}년 {currentMonth + 1}월 전체 일정</div>
+
+              {/* 🚀 월간 일정표 이미지 관리 영역 */}
+              <div style={{ marginBottom: '20px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#333D4B' }}>📸 이달의 스케줄표 (이미지)</div>
+                  {monthlyScheduleImage && (
+                    <button onClick={handleDeleteMonthlyImage} style={{ background: 'none', border: 'none', color: '#F04452', fontSize: '12px', cursor: 'pointer', fontWeight: 'bold' }}>삭제</button>
+                  )}
+                </div>
+
+                {!monthlyScheduleImage ? (
+                  <label className="btn-upload-photo" style={{ background: '#F2F8FF', color: '#3182F6', border: '1px dashed #3182F6', fontWeight: 'bold', padding: '12px', borderRadius: '12px' }}>
+                    <input type="file" accept="image/*" onChange={handleMonthlyImageUpload} className="hidden-file-input" />
+                    + 일정표 사진 등록하기
+                  </label>
+                ) : (
+                  <div>
+                    <img
+                      src={monthlyScheduleImage}
+                      alt="월간 일정표"
+                      style={{ width: '100%', maxHeight: '180px', objectFit: 'cover', borderRadius: '12px', cursor: 'pointer', border: '1px solid #E5E8EB' }}
+                      onClick={() => setIsImageViewerOpen(true)}
+                    />
+                    <div style={{ fontSize: '11px', color: '#8B95A1', textAlign: 'center', marginTop: '6px' }}>
+                      💡 팁: 이미지를 터치하면 원본 크기로 확대됩니다.
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* 월간 텍스트 일정 리스트 */}
+              {monthlySchedules.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '16px' }}>
+                  <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#333D4B', marginTop: '10px' }}>📝 개별 일정 리스트</div>
+                  {monthlySchedules.map((item, idx) => (
+                    <div key={idx} style={{ background: '#F9FAFB', padding: '12px', borderRadius: '12px', border: '1px solid #E5E8EB' }}>
+                      <div style={{ fontSize: '13px', fontWeight: 'bold', color: '#3182F6', marginBottom: '4px' }}>📌 {item.date}</div>
+                      <div style={{ fontSize: '14px', color: '#191F28', whiteSpace: 'pre-wrap' }}>{item.schedule}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div style={{ display: 'flex', gap: '8px', marginTop: '20px' }}>
+                <button
+                  className="btn-save"
+                  onClick={() => setIsMonthlyScheduleModalOpen(false)}
+                  style={{ background: '#F2F4F6', color: '#4E5968', marginTop: 0 }}
+                >
+                  닫기
+                </button>
+                <button
+                  className="btn-save"
+                  onClick={handleShareMonthlySchedule}
+                  style={{ marginTop: 0 }}
+                >
+                  텍스트 일정 📤
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 🚀 팝업 위에 뜨는 전체화면 이미지 뷰어 */}
+        {isImageViewerOpen && monthlyScheduleImage && (
+          <div className="modal-overlay" onClick={() => setIsImageViewerOpen(false)} style={{ zIndex: 9999, padding: 0 }}>
+            <div style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.9)' }}>
+              <img src={monthlyScheduleImage} alt="월간 일정표 원본" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+              <button
+                onClick={() => setIsImageViewerOpen(false)}
+                style={{ position: 'absolute', top: '20px', right: '20px', background: 'rgba(255,255,255,0.2)', border: 'none', color: 'white', width: '40px', height: '40px', borderRadius: '50%', fontSize: '20px', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center' }}
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        )}
+
+        {isShopModalOpen && (
+          <div className="modal-overlay" onClick={() => setIsShopModalOpen(false)}>
+            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+              <div className="modal-header">🎁 10코어 포인트 상점</div>
+              <p style={{ textAlign: 'center', fontSize: '14px', color: '#6B7684', marginBottom: '20px' }}>
+                열심히 모은 1% 성장 포인트로<br/>진짜 보상을 받아가세요!
+              </p>
+
+              <div style={{ background: '#F9FAFB', padding: '16px', borderRadius: '12px', marginBottom: '16px', border: '1px solid #E5E8EB', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <div style={{ fontWeight: 'bold', fontSize: '15px' }}>☕ 스타벅스 아메리카노</div>
+                  <div style={{ fontSize: '13px', color: '#3182F6', fontWeight: 'bold', marginTop: '4px' }}>4,500 P</div>
+                </div>
+                <button
+                  style={{ background: points >= 4500 ? '#3182F6' : '#D1D6DB', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '8px', fontWeight: 'bold', cursor: points >= 4500 ? 'pointer' : 'not-allowed' }}
+                  onClick={() => {
+                    if (points >= 4500) {
+                      alert("☕ 교환 신청이 완료되었습니다! (관리자 확인 후 지급됩니다)");
+                      setPoints(prev => prev - 4500);
+                    } else {
+                      alert("포인트가 부족합니다. 매일 10코어를 공유하고 포인트를 모아보세요!");
+                    }
+                  }}
+                >
+                  교환
+                </button>
+              </div>
+
+              <div style={{ background: '#F9FAFB', padding: '16px', borderRadius: '12px', marginBottom: '16px', border: '1px solid #E5E8EB', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <div style={{ fontWeight: 'bold', fontSize: '15px' }}>🍗 BHC 뿌링클 세트</div>
+                  <div style={{ fontSize: '13px', color: '#3182F6', fontWeight: 'bold', marginTop: '4px' }}>20,000 P</div>
+                </div>
+                <button
+                  style={{ background: points >= 20000 ? '#3182F6' : '#D1D6DB', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '8px', fontWeight: 'bold', cursor: points >= 20000 ? 'pointer' : 'not-allowed' }}
+                  onClick={() => {
+                    if (points >= 20000) {
+                      alert("🍗 치킨 교환 신청이 완료되었습니다! (관리자 확인 후 지급됩니다)");
+                      setPoints(prev => prev - 20000);
+                    } else {
+                      alert("포인트가 부족합니다. 10코어를 계속 실천하세요!");
+                    }
+                  }}
+                >
+                  교환
+                </button>
+              </div>
+
+              <button className="btn-save" onClick={() => setIsShopModalOpen(false)}>닫기</button>
             </div>
           </div>
         )}
