@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Text, Spacing } from '@toss/tds-mobile';
 import { colors } from '@toss/tds-colors';
 import Tesseract from 'tesseract.js';
-import { showFullScreenAd } from '@apps-in-toss/web-framework';
+// 🚀 커스텀 훅 정상 임포트
+import { useInAppAds } from './hooks/useInAppAds';
 import './App.css';
 
 const CORE_LIST = [
@@ -23,6 +24,9 @@ const GOAL_FIELDS = [
 ];
 
 function App() {
+  // 🟢 핵심 수정: React Hook은 반드시 컴포넌트(App) 안쪽에 선언되어야 합니다!
+  const { showAd, isSupported } = useInAppAds('ait.v2.live.4085991e9d3d489b');
+
   const dateObj = new Date();
   const timezoneOffset = dateObj.getTimezoneOffset() * 60000;
   const localDate = new Date(dateObj.getTime() - timezoneOffset);
@@ -43,7 +47,6 @@ function App() {
   const [isMonthlyScheduleModalOpen, setIsMonthlyScheduleModalOpen] = useState(false);
   const [monthlySchedules, setMonthlySchedules] = useState<{date: string, schedule: string}[]>([]);
 
-  // 🚀 월간 일정표 이미지 뷰어 상태
   const [monthlyScheduleImage, setMonthlyScheduleImage] = useState<string | null>(null);
   const [isImageViewerOpen, setIsImageViewerOpen] = useState(false);
 
@@ -72,7 +75,6 @@ function App() {
   const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
   const currentMonthPrefix = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`;
 
-  // 🚀 이달의 일정표 이미지를 월 변경 시마다 새로 불러옴
   useEffect(() => {
     const savedImg = localStorage.getItem(`success_monthly_schedule_image_${currentMonthPrefix}`);
     setMonthlyScheduleImage(savedImg ? savedImg : null);
@@ -251,7 +253,6 @@ function App() {
     }
   };
 
-  // 🚀 월간 일정표 이미지 업로드 핸들러
   const handleMonthlyImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -269,7 +270,6 @@ function App() {
     reader.readAsDataURL(file);
   };
 
-  // 🚀 월간 일정표 이미지 삭제 핸들러
   const handleDeleteMonthlyImage = () => {
     if(window.confirm('등록된 월간 일정표 이미지를 삭제하시겠습니까?')) {
       localStorage.removeItem(`success_monthly_schedule_image_${currentMonthPrefix}`);
@@ -277,6 +277,7 @@ function App() {
     }
   };
 
+  // 🚀 요청하신 광고 패턴 및 공유 로직 적용
   const handleShare = async () => {
     let newStreak = shareStreak;
     let isStreakIncreased = false;
@@ -311,31 +312,49 @@ function App() {
       else if (newStreak === 500) { newRank = '다이아몬드'; bonusPoints = 1000; }
     }
 
-    setShareStreak(newStreak);
-    setLastShareDate(todayStr);
-    setRank(newRank);
-    setPoints(p => p + 1 + bonusPoints);
-
-    localStorage.setItem('success_streak', newStreak.toString());
-    localStorage.setItem('success_last_share', todayStr);
-    localStorage.setItem('success_rank', newRank);
-
     const completedCount = cores.filter(Boolean).length;
     const dynamicStreakMessage = getStreakMessage(newStreak);
     const shareText = `🌟 [성공일기10코어] 🌟\n👤 리더: ${userName || '이름없음'}\n📅 날짜: ${selectedDate}\n🔥 오늘 달성: ${completedCount}/10\n${dynamicStreakMessage}\n👑 현재 직급: ${newRank}\n📊 월 누적 달성률: ${monthProgressPercent}%\n🚀 월 누적 STP: ${monthStpTotal}회\n👥 월 누적 데몬: ${monthDemonTotal}회`;
 
-    try {
-      if (navigator.share) {
-        await navigator.share({ title: '성공일기10코어', text: shareText });
-      } else {
-        await navigator.clipboard.writeText(shareText);
-        alert("내용이 복사되었습니다! 카카오톡에 붙여넣기 해보세요. 📋");
-      }
-    } catch (err) {
-      console.warn("공유를 취소했거나 에러 발생:", err);
-    }
+    // 데이터 저장 및 공유, 알림을 처리하는 내부 함수
+    const completeShareAndReward = async () => {
+      setShareStreak(newStreak);
+      setLastShareDate(todayStr);
+      setRank(newRank);
+      setPoints(p => p + 1 + bonusPoints);
 
-    const showRewardAlert = () => {
+      localStorage.setItem('success_streak', newStreak.toString());
+      localStorage.setItem('success_last_share', todayStr);
+      localStorage.setItem('success_rank', newRank);
+
+      let isShared = false;
+      try {
+        if (navigator.share) {
+          await navigator.share({ title: '성공일기10코어', text: shareText });
+          isShared = true;
+        }
+      } catch (err) {
+        console.warn("공유 취소 또는 에러:", err);
+      }
+
+      if (!isShared) {
+        try {
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            await navigator.clipboard.writeText(shareText);
+          } else {
+            const textArea = document.createElement("textarea");
+            textArea.value = shareText;
+            document.body.appendChild(textArea);
+            textArea.select();
+            document.execCommand("copy");
+            textArea.remove();
+          }
+          alert("광고 확인 완료! 내용이 복사되었으니 카카오톡에 붙여넣기 해주세요. 📋");
+        } catch (copyErr) {
+          console.warn("복사 에러:", copyErr);
+        }
+      }
+
       setTimeout(() => {
         if (bonusPoints > 0) {
           alert(`🎉 기적을 만들고 계십니다! 연속 ${newStreak}일 달성!\n[${newRank}] 승급 및 ${bonusPoints}P 보너스가 지급되었습니다! 💎💎💎`);
@@ -347,17 +366,23 @@ function App() {
       }, 500);
     };
 
+    // 🚀 요청하신 예외 처리 패턴 적용
     try {
-      if (typeof showFullScreenAd !== 'undefined' && showFullScreenAd.isSupported && showFullScreenAd.isSupported()) {
-        await showFullScreenAd({ adGroupId: 'ait.v2.live.4085991e9d3d489b' });
-        showRewardAlert();
-      } else {
-        await showFullScreenAd({ adGroupId: 'ait.v2.live.4085991e9d3d489b' });
-        showRewardAlert();
+      if (isSupported) {
+        // 커스텀 훅의 showAd를 실행합니다.
+        await showAd(); 
       }
-    } catch (adError) {
-      console.warn("광고 시스템 로드 실패. 앱 멈춤 방지를 위해 바로 넘어갑니다:", adError);
-      showRewardAlert();
+      
+      // 토스 환경에서 광고를 다 봤거나, 무사히 통과했다면 공유 실행
+      await completeShareAndReward();
+
+    } catch (error) {
+      console.warn("광고 에러 발생:", error);
+      // 테스트 환경 등에서 에러 발생 시 confirm 띄우기
+      const isConfirm = window.confirm("광고 시청 환경(테스트 등)이 아닙니다. 그래도 공유를 진행할까요?");
+      if (isConfirm) {
+        await completeShareAndReward();
+      }
     }
   };
 
@@ -565,7 +590,7 @@ function App() {
           </div>
 
           <Spacing size={16} />
-          <button className="share-btn" onClick={handleShare}>📺 1%성장 공유하기</button>
+          <button className="share-btn" onClick={handleShare}>📺 1%성장 공유하기 (광고)</button>
 
           <button
             className="share-btn"
@@ -609,7 +634,6 @@ function App() {
             <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxHeight: '80vh', overflowY: 'auto' }}>
               <div className="modal-header">📅 {currentYear}년 {currentMonth + 1}월 전체 일정</div>
 
-              {/* 🚀 월간 일정표 이미지 관리 영역 */}
               <div style={{ marginBottom: '20px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                   <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#333D4B' }}>📸 이달의 스케줄표 (이미지)</div>
